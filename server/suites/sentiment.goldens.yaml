@@ -1,0 +1,9 @@
+name: sentiment-classification
+version: "1"
+cases:
+  - {id: s1, input: "The product quality is excellent and shipping was fast!",   expected: "positive", rubric: "Classifies as positive.", metadata: {distractor: "negative"}}
+  - {id: s2, input: "Terrible customer service, I will never buy again.",        expected: "negative", rubric: "Classifies as negative.", metadata: {distractor: "positive"}}
+  - {id: s3, input: "It's okay, nothing special but it works.",                   expected: "neutral",  rubric: "Classifies as neutral.",  metadata: {distractor: "positive"}}
+  - {id: s4, input: "Absolutely love it, best purchase this year.",              expected: "positive", rubric: "Classifies as positive.", metadata: {distractor: "neutral"}}
+  - {id: s5, input: "The package arrived damaged and support ignored my emails.", expected: "negative", rubric: "Classifies as negative.", metadata: {distractor: "neutral"}}
+  - {id: s6, input: "Does what it says. No complaints, no surprises.",           expected: "neutral",  rubric: "Classifies as neutral.",  metadata: {distractor: "negative"}}

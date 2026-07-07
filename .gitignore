@@ -15,6 +15,11 @@ htmlcov/
 
 # evalharness artifacts
 .evalcache/
+server/.data/
+
+# frontend (web/ has its own .gitignore too)
+node_modules/
+.next/
 report.html
 run.json
 

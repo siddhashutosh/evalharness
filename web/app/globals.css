@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background-color: #0a0812;
+  color: #ececf5;
+  /* Layered vibrant aurora on a deep base. */
+  background-image:
+    radial-gradient(60rem 60rem at 12% -10%, rgba(232, 121, 249, 0.14), transparent 60%),
+    radial-gradient(50rem 50rem at 100% 0%, rgba(34, 211, 238, 0.12), transparent 55%),
+    radial-gradient(60rem 60rem at 50% 120%, rgba(167, 139, 250, 0.16), transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl;
+  }
+  .glass-strong {
+    @apply rounded-2xl border border-white/10 bg-ink-panel/70 backdrop-blur-xl;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-neon-fuchsia via-neon-violet to-neon-cyan bg-clip-text text-transparent;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-violet/70 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn text-white shadow-glow;
+    background-image: linear-gradient(120deg, #e879f9, #a78bfa 45%, #22d3ee);
+    background-size: 200% 100%;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-position: 100% 0;
+  }
+  .btn-ghost {
+    @apply btn border border-white/15 bg-white/[0.03] text-white/90 hover:bg-white/[0.08];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs font-medium text-white/80;
+  }
+  .card-label {
+    @apply text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-white/45;
+  }
+}
+
+/* Recessive scrollbars that fit the dark theme. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Range slider — vibrant fill. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #e879f9, #22d3ee);
+  border: 2px solid #0a0812;
+  box-shadow: 0 0 16px -2px rgba(168, 139, 250, 0.8);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #e879f9, #22d3ee);
+  border: 2px solid #0a0812;
+  cursor: pointer;
+}

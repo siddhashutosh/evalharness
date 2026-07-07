@@ -1,0 +1,11 @@
+name: capitals-qa
+version: "1"
+cases:
+  - {id: france,    input: "What is the capital of France?",    expected: "Paris",     rubric: "Correctly identifies Paris.",              tags: [geography],          metadata: {distractor: "London"}}
+  - {id: japan,     input: "What is the capital of Japan?",     expected: "Tokyo",     rubric: "Correctly identifies Tokyo.",              tags: [geography],          metadata: {distractor: "Kyoto"}}
+  - {id: australia, input: "What is the capital of Australia?", expected: "Canberra",  rubric: "Identifies Canberra, not Sydney.",         tags: [geography, tricky],  metadata: {distractor: "Sydney"}}
+  - {id: brazil,    input: "What is the capital of Brazil?",    expected: "Brasília",  rubric: "Identifies Brasília, not Rio.",            tags: [geography, tricky],  metadata: {distractor: "Rio de Janeiro"}}
+  - {id: egypt,     input: "What is the capital of Egypt?",     expected: "Cairo",     rubric: "Correctly identifies Cairo.",              tags: [geography],          metadata: {distractor: "Alexandria"}}
+  - {id: canada,    input: "What is the capital of Canada?",    expected: "Ottawa",    rubric: "Identifies Ottawa, not Toronto.",          tags: [geography, tricky],  metadata: {distractor: "Toronto"}}
+  - {id: norway,    input: "What is the capital of Norway?",    expected: "Oslo",      rubric: "Correctly identifies Oslo.",               tags: [geography],          metadata: {distractor: "Bergen"}}
+  - {id: kenya,     input: "What is the capital of Kenya?",     expected: "Nairobi",   rubric: "Correctly identifies Nairobi.",            tags: [geography],          metadata: {distractor: "Mombasa"}}

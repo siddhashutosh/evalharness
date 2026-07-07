@@ -1,0 +1,20 @@
+name: capitals-qa
+golden_set: capitals.goldens.yaml
+
+provider: anthropic
+target_model: claude-opus-4-8
+judge_model: claude-opus-4-8
+
+max_tokens: 64
+system: "You are a precise geography assistant. Answer with only the city name."
+prompt_template: "{input}"
+
+scorers:
+  - {type: contains, threshold: 1.0, required: true}   # must contain the city
+  - {type: llm_judge, threshold: 0.6}                  # rubric-based grade
+
+thresholds:
+  pass_rate_drop: 0.0
+  scorer_mean_drop: 0.05
+
+concurrency: 4

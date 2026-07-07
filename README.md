@@ -128,6 +128,28 @@ A prompt/model change that regresses quality turns the PR check red.
 
 ---
 
+## Web dashboard & API
+
+A full-stack UI ships alongside the library: a **FastAPI backend** (`server/`)
+that bridges to the harness, and a **vibrant Next.js dashboard** (`web/`) to run
+suites, save baselines, and watch the gate catch regressions live.
+
+```bash
+# backend (from repo root) — demo mode needs no API key
+pip install -e . && pip install -r server/requirements.txt
+uvicorn server.app:app --reload --port 8000
+
+# frontend (from web/)
+cd web && cp .env.local.example .env.local && npm install && npm run dev
+# → http://localhost:3000
+```
+
+The dashboard has a **model-quality slider**: run at full quality, save a
+baseline, drag quality down, and run the gate to see exactly which cases regress.
+Demo mode uses a deterministic offline provider (no key); live mode calls the
+real model. Details: [`server/README.md`](server/README.md) ·
+[`web/README.md`](web/README.md).
+
 ## Architecture & SOLID
 
 The pipeline is built around small, single-purpose components wired together by
