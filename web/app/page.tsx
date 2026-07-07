@@ -1,5 +1,24 @@
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
+import { GateBanner } from "@/components/GateBanner";
+import type { GateDecision } from "@/lib/types";
+
+// Illustrative outcomes so visitors see both states at a glance.
+const PASS_SAMPLE: GateDecision = { passed: true, reasons: [] };
+const FAIL_SAMPLE: GateDecision = {
+  passed: false,
+  reasons: [
+    {
+      kind: "case_regression",
+      detail: "case 'australia' regressed pass → fail (contains: missing expected)",
+    },
+    {
+      kind: "pass_rate_drop",
+      detail: "pass rate dropped 100.0% → 75.0% (delta 25.0% > tolerance 0.0%)",
+    },
+    { kind: "scorer_drop", detail: "scorer 'llm_judge' mean dropped 0.950 → 0.750" },
+  ],
+};
 
 const FEATURES = [
   {
@@ -143,6 +162,42 @@ export default function Home() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Two outcomes */}
+      <section className="mx-auto max-w-5xl px-5 py-12">
+        <div className="mb-8 text-center">
+          <h2 className="font-display text-3xl font-bold">
+            Two outcomes, <span className="gradient-text">one gate</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-white/60">
+            Every change is graded against your baseline. If quality holds, the gate is green and
+            you ship. If it slips, the gate goes red and tells you exactly what broke — down to the
+            case.
+          </p>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2 sm:items-start">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-status-good">
+              <span className="h-2 w-2 rounded-full bg-status-good" /> Quality held → ship it
+            </div>
+            <GateBanner gate={PASS_SAMPLE} />
+          </div>
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-status-critical">
+              <span className="h-2 w-2 rounded-full bg-status-critical" /> Quality dropped → build
+              fails
+            </div>
+            <GateBanner gate={FAIL_SAMPLE} />
+          </div>
+        </div>
+        <p className="mt-6 text-center text-sm text-white/45">
+          Want to trigger both yourself?{" "}
+          <Link href="/dashboard" className="text-neon-cyan underline-offset-4 hover:underline">
+            Open the dashboard
+          </Link>{" "}
+          and use the one-click guided demo.
+        </p>
       </section>
 
       <footer className="mx-auto max-w-7xl px-5 py-10 text-center text-sm text-white/40">

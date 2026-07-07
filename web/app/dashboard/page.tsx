@@ -143,6 +143,24 @@ export default function Dashboard() {
       flash(res.gate.passed ? "Gate passed ✓" : "Gate failed ✕", res.gate.passed ? "ok" : "err");
     });
 
+  // One-click demo: baseline at 100%, then gate at 100% (passes) or 50% (fails).
+  const doDemo = (kind: "pass" | "fail") =>
+    withBusy(`demo-${kind}`, async () => {
+      const base = await api.baseline({ suite: selected, quality: 1.0 });
+      setBaselineRun(base.run);
+      record(base.id, selected, 1.0, base.run);
+      const q = kind === "pass" ? 1.0 : 0.5;
+      const g = await api.gate({ suite: selected, quality: q, baseline: base.run });
+      setRun(g.run);
+      setGate(g.gate ?? null);
+      if (g.run_id) record(g.run_id, selected, q, g.run);
+      setQuality(q);
+      flash(
+        g.gate?.passed ? "Passing gate — no regression ✓" : "Failing gate — regression caught ✕",
+        g.gate?.passed ? "ok" : "err",
+      );
+    });
+
   const openHistory = (id: string) => {
     const entry = history.find((h) => h.id === id);
     if (!entry) return;
@@ -200,6 +218,31 @@ export default function Dashboard() {
               busy={busy}
               action={action}
             />
+
+            <div className="glass-strong p-5">
+              <div className="card-label mb-1.5">Guided demo</div>
+              <p className="mb-3 text-xs text-white/50">
+                See both outcomes in one click — each saves a 100% baseline, then gates a fresh run
+                against it.
+              </p>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => doDemo("pass")}
+                  disabled={busy}
+                  className="btn flex-1 border border-status-good/40 bg-status-good/10 text-status-good transition hover:bg-status-good/20 disabled:opacity-50"
+                >
+                  {busy && action === "demo-pass" ? <DemoSpinner /> : "✓"} Passing gate
+                </button>
+                <button
+                  onClick={() => doDemo("fail")}
+                  disabled={busy}
+                  className="btn flex-1 border border-status-critical/40 bg-status-critical/10 text-status-critical transition hover:bg-status-critical/20 disabled:opacity-50"
+                >
+                  {busy && action === "demo-fail" ? <DemoSpinner /> : "✕"} Failing gate
+                </button>
+              </div>
+            </div>
+
             <RunHistory runs={runSummaries} activeId={activeId} onSelect={openHistory} />
           </div>
 
@@ -255,6 +298,12 @@ export default function Dashboard() {
   );
 }
 
+function DemoSpinner() {
+  return (
+    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+  );
+}
+
 function EmptyState() {
   return (
     <div className="glass grid place-items-center p-16 text-center">
@@ -262,11 +311,13 @@ function EmptyState() {
         <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-neon-fuchsia to-neon-cyan text-3xl text-ink-bg shadow-glow">
           ▶
         </div>
-        <h3 className="font-display text-xl font-bold">Run your first eval</h3>
+        <h3 className="font-display text-xl font-bold">See it in action</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm text-white/55">
-          Pick a suite, then hit <span className="font-semibold text-white">Run eval</span>. Save a
-          baseline at full quality, drag the slider down, and run the gate to see regressions get
-          caught.
+          Fastest way to understand it: hit{" "}
+          <span className="font-semibold text-status-good">Passing gate</span> then{" "}
+          <span className="font-semibold text-status-critical">Failing gate</span> in the guided
+          demo on the left — you&apos;ll see both outcomes instantly. Or run a suite manually and
+          drag the quality slider.
         </p>
       </div>
     </div>
