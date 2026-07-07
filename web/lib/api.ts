@@ -1,14 +1,10 @@
-// Thin client for the evalharness FastAPI backend.
+// Client for the eval API. By default calls same-origin `/api/*` (the Next.js
+// route handlers). Set NEXT_PUBLIC_API_URL to target the Python FastAPI backend
+// instead (e.g. http://localhost:8000 during local development).
 
-import type {
-  GateResponse,
-  RunResult,
-  RunSummary,
-  SuiteSummary,
-} from "./types";
+import type { GateResponse, RunResult, SuiteSummary } from "./types";
 
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
 
 export class ApiError extends Error {}
 
@@ -22,7 +18,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch {
     throw new ApiError(
-      `Cannot reach the API at ${BASE}. Is the backend running? (uvicorn server.app:app)`,
+      BASE
+        ? `Cannot reach the API at ${BASE}. Is the backend running?`
+        : "Request failed. Please try again.",
     );
   }
   if (!res.ok) {
@@ -42,11 +40,11 @@ export interface RunOpts {
   suite: string;
   quality: number;
   mode?: string;
-  baseline_id?: string | null;
+  baseline?: RunResult | null;
 }
 
 export const api = {
-  base: BASE,
+  base: BASE || "same-origin",
   health: () => req<{ status: string }>("/api/health"),
   suites: () => req<SuiteSummary[]>("/api/suites"),
   suite: (name: string) => req<SuiteSummary>(`/api/suites/${encodeURIComponent(name)}`),
@@ -67,9 +65,7 @@ export const api = {
         suite: o.suite,
         quality: o.quality,
         mode: o.mode ?? "demo",
-        baseline_id: o.baseline_id ?? null,
+        baseline: o.baseline ?? null,
       }),
     }),
-  runs: () => req<RunSummary[]>("/api/runs"),
-  runById: (id: string) => req<{ id: string; run: RunResult }>(`/api/runs/${id}`),
 };

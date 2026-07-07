@@ -44,40 +44,36 @@ Then open http://localhost:3000, go to the dashboard, and:
 - **Types mirror the harness.** `lib/types.ts` is a 1:1 TypeScript mirror of the
   Python `RunResult` / `GateDecision` model.
 
-## Configuration
+## How the backend works
 
-`NEXT_PUBLIC_API_URL` — backend base URL (default `http://localhost:8000`).
+The dashboard is **self-contained**: it ships its own eval engine as Next.js API
+route handlers (`app/api/*`), so it runs the demo (run / baseline / gate) with no
+separate service. `lib/engine.ts` is a faithful TypeScript port of the Python
+demo pipeline (`server/demo.py` + the harness scorers/regression), so the gate
+behaves identically.
 
-## Deploying (Vercel + a hosted backend)
-
-The frontend and backend deploy **separately**: Vercel hosts this Next.js app;
-the FastAPI backend (`../server/`) runs on a Python host. The browser calls the
-backend directly, so it must be publicly reachable — `localhost` will not work
-once hosted.
-
-**1. Deploy the backend** (demo mode needs no API key). Any Python host works;
-the repo ships config for two:
-
-- **Render** — `render.yaml` at the repo root. New Web Service → point at this
-  repo → it builds and serves `uvicorn server.app:app`. Copy the resulting URL.
-- **Docker** (Railway / Fly.io / Cloud Run) — `Dockerfile` at the repo root:
-  `docker build -t evalharness-api . && docker run -p 8000:8000 evalharness-api`.
-
-Verify it's up: `https://<your-backend>/api/health` → `{"status":"ok"}`.
-
-**2. Point Vercel at it.** In the Vercel project → **Settings → Environment
-Variables**, add:
+The client calls **same-origin `/api`** by default. To instead point it at the
+Python FastAPI backend (`../server/`) — e.g. to run the real library — set:
 
 ```
-NEXT_PUBLIC_API_URL = https://<your-backend-url>
+NEXT_PUBLIC_API_URL = http://localhost:8000
 ```
 
-**3. Redeploy.** `NEXT_PUBLIC_*` vars are baked in at **build time**, so you must
-trigger a new deployment after setting it (Deployments → ⋯ → Redeploy, or push a
-commit). CORS on the backend is already open, so no extra config is needed.
+Leave it unset (the default) to use the built-in routes.
 
-> Note: the free Render tier sleeps when idle, so the first request after a pause
-> takes a few seconds to wake the service.
+## Deploying to Vercel
+
+Nothing extra required — the app is fully self-contained:
+
+1. Import the repo into Vercel with **Root Directory = `web`**.
+2. Deploy. No backend, env var, or CORS config needed.
+
+The `run → save baseline → gate` flow works on serverless because the gate is
+**stateless** (the browser holds the baseline and sends it with the request), and
+run history is kept in the browser's `localStorage`.
+
+> The `../server/` FastAPI backend remains for local/CLI use and for running the
+> *real* Python harness; it is not needed for the hosted demo.
 
 ## Build
 
