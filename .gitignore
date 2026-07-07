@@ -30,3 +30,9 @@ run.json
 
 # Local tooling
 .claude/
+
+# Vercel CLI
+.vercel/
+
+.vercel
+.env*

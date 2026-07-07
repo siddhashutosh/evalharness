@@ -1,0 +1,10 @@
+# Only web/ is built (Root Directory = web). Keep the upload lean.
+.venv/
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+.evalcache/
+server/.data/
+docs/
+tests/
