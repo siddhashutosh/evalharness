@@ -1,12 +1,12 @@
 import type { SuiteSummary } from "@/lib/types";
-import { pct } from "@/lib/format";
 
 export function RunControls({
   suites,
   selected,
   onSelect,
-  quality,
-  onQuality,
+  prompt,
+  onPrompt,
+  onResetPrompt,
   onRun,
   onBaseline,
   onGate,
@@ -16,8 +16,9 @@ export function RunControls({
   suites: SuiteSummary[];
   selected: string;
   onSelect: (name: string) => void;
-  quality: number;
-  onQuality: (q: number) => void;
+  prompt: string;
+  onPrompt: (v: string) => void;
+  onResetPrompt: () => void;
   onRun: () => void;
   onBaseline: () => void;
   onGate: () => void;
@@ -25,30 +26,41 @@ export function RunControls({
   action: string | null;
 }) {
   const suite = suites.find((s) => s.name === selected);
+  const hasSelection = !!suite;
+  const p = prompt.toLowerCase();
+
   return (
     <div className="glass-strong p-5">
-      <div className="card-label mb-3">Suite</div>
-      <div className="flex flex-wrap gap-2">
-        {suites.map((s) => (
-          <button
-            key={s.name}
-            onClick={() => onSelect(s.name)}
-            disabled={busy}
-            className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition disabled:opacity-60 ${
-              s.name === selected
-                ? "border-neon-violet/50 bg-neon-violet/15 text-white shadow-glow"
-                : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.07]"
-            }`}
-          >
-            {s.name}
-          </button>
-        ))}
+      {/* Feature dropdown */}
+      <label className="card-label mb-2 block">AI feature</label>
+      <div className="relative">
+        <select
+          value={selected}
+          disabled={busy}
+          onChange={(e) => onSelect(e.target.value)}
+          className="w-full appearance-none rounded-xl border border-white/15 bg-ink-raised/80 px-3.5 py-2.5 pr-9 text-sm font-medium text-white outline-none transition focus:border-neon-violet/60 disabled:opacity-60"
+        >
+          <option value="" disabled>
+            Select an AI feature…
+          </option>
+          {suites.map((s) => (
+            <option key={s.name} value={s.name} className="bg-ink-panel">
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/50">
+          ▾
+        </span>
       </div>
-
       {suite && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-white/50">{suite.description}</span>
+        </div>
+      )}
+      {suite && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <span className="chip">{suite.num_cases} cases</span>
-          <span className="chip font-mono">{suite.target_model}</span>
           {suite.scorers.map((sc) => (
             <span key={sc.type} className="chip font-mono">
               {sc.type}
@@ -58,40 +70,71 @@ export function RunControls({
         </div>
       )}
 
-      <div className="mt-6">
-        <div className="mb-2 flex items-center justify-between">
-          <span className="card-label">
-            Simulated model quality
-          </span>
-          <span className="font-display text-lg font-bold tabular-nums text-white">
-            {pct(quality)}
-          </span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.1}
-          value={quality}
-          disabled={busy}
-          onChange={(e) => onQuality(parseFloat(e.target.value))}
-          className="w-full"
-        />
-        <p className="mt-2 text-xs text-white/45">
-          Demo mode answers the golden set at this quality — drag it down, then run the gate to
-          watch regressions get caught. (Live mode calls the real model.)
-        </p>
+      {/* Prompt box */}
+      <div className="mt-5 flex items-center justify-between">
+        <label className="card-label">Your system prompt</label>
+        {hasSelection && (
+          <button
+            onClick={onResetPrompt}
+            disabled={busy}
+            className="text-xs text-neon-cyan transition hover:underline disabled:opacity-50"
+          >
+            reset to default
+          </button>
+        )}
       </div>
+      <textarea
+        value={prompt}
+        readOnly={!hasSelection}
+        disabled={busy}
+        onChange={(e) => onPrompt(e.target.value)}
+        rows={6}
+        placeholder={
+          hasSelection
+            ? "Edit the prompt for this feature…"
+            : "Select an AI feature above to edit its prompt."
+        }
+        className={`mt-1.5 w-full resize-y rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed outline-none transition ${
+          hasSelection
+            ? "border-white/15 bg-black/40 text-white/90 focus:border-neon-violet/60"
+            : "cursor-not-allowed border-white/10 bg-white/[0.02] text-white/40"
+        }`}
+      />
 
-      <div className="mt-6 flex flex-wrap gap-2.5">
-        <button onClick={onRun} disabled={busy} className="btn-primary flex-1">
+      {/* Live prompt-quality checklist */}
+      {suite && (
+        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="card-label mb-2">Prompt quality — more ✓ means more cases pass</div>
+          <ul className="space-y-1.5">
+            {suite.signals.map((sig) => {
+              const ok = p.includes(sig.text.toLowerCase());
+              return (
+                <li key={sig.text} className="flex items-start gap-2 text-xs">
+                  <span
+                    className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-[0.6rem] ${
+                      ok ? "bg-status-good/20 text-status-good" : "bg-white/10 text-white/40"
+                    }`}
+                  >
+                    {ok ? "✓" : "○"}
+                  </span>
+                  <span className={ok ? "text-white/75" : "text-white/45"}>{sig.tip}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="mt-5 flex flex-wrap gap-2.5">
+        <button onClick={onRun} disabled={busy || !hasSelection} className="btn-primary flex-1">
           {busy && action === "run" ? <Spinner /> : "▶"} Run eval
         </button>
-        <button onClick={onBaseline} disabled={busy} className="btn-ghost">
-          {busy && action === "baseline" ? <Spinner /> : "◆"} Save baseline
+        <button onClick={onBaseline} disabled={busy || !hasSelection} className="btn-ghost">
+          {busy && action === "baseline" ? <Spinner /> : "◆"} Baseline
         </button>
-        <button onClick={onGate} disabled={busy} className="btn-ghost">
-          {busy && action === "gate" ? <Spinner /> : "⛬"} Run gate
+        <button onClick={onGate} disabled={busy || !hasSelection} className="btn-ghost">
+          {busy && action === "gate" ? <Spinner /> : "⛬"} Gate
         </button>
       </div>
     </div>

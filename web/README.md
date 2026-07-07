@@ -44,13 +44,24 @@ Then open http://localhost:3000, go to the dashboard, and:
 - **Types mirror the harness.** `lib/types.ts` is a 1:1 TypeScript mirror of the
   Python `RunResult` / `GateDecision` model.
 
+## Prompt playground
+
+The dashboard is a **prompt playground**. Pick one of **10 AI-feature templates**
+(`lib/suites.ts`) — support bot, sentiment, summarizer, email drafter, intent
+router, PII redactor, NL→SQL, translator, code reviewer, grounded RAG Q&A — and
+edit its system prompt. Each feature ships a golden set plus a set of
+**prompt-quality signals** (e.g. "list the allowed labels", "require one-word
+output"). The more signals your prompt covers, the more — and harder — golden
+cases pass. A live checklist in the UI shows your coverage; save a baseline,
+weaken the prompt, and the gate catches the regression.
+
 ## How the backend works
 
 The dashboard is **self-contained**: it ships its own eval engine as Next.js API
-route handlers (`app/api/*`), so it runs the demo (run / baseline / gate) with no
-separate service. `lib/engine.ts` is a faithful TypeScript port of the Python
-demo pipeline (`server/demo.py` + the harness scorers/regression), so the gate
-behaves identically.
+route handlers (`app/api/*`), so it runs everything (run / baseline / gate) with no
+separate service. `lib/engine.ts` scores a prompt against a golden set and reuses
+the same aggregation + regression logic as the Python harness, so the gate behaves
+identically.
 
 The client calls **same-origin `/api`** by default. To instead point it at the
 Python FastAPI backend (`../server/`) — e.g. to run the real library — set:

@@ -59,7 +59,13 @@ const FEATURES = [
   },
 ];
 
-const PIPELINE = ["Golden set", "Run model", "Score", "Compare baseline", "Pass / FAIL gate"];
+const PIPELINE = [
+  "Pick a feature",
+  "Edit the prompt",
+  "Score vs golden set",
+  "Compare baseline",
+  "Pass / FAIL gate",
+];
 
 export default function Home() {
   return (
@@ -82,7 +88,9 @@ export default function Home() {
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/60">
             <code className="rounded bg-white/10 px-1.5 py-0.5 text-white/80">evalharness</code> is
             pytest for LLM outputs — golden sets, LLM-as-judge scoring, and a regression gate that
-            fails the build when quality drops. Run it live from this dashboard.
+            fails the build when quality drops. Pick one of{" "}
+            <span className="font-semibold text-white">10 AI features</span>, edit its prompt, and
+            watch your prompt quality move the score — live.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/dashboard" className="btn-primary px-6 py-3 text-base">

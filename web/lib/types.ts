@@ -58,12 +58,22 @@ export interface ScorerSpec {
   required: boolean;
 }
 
+export interface PromptSignal {
+  text: string;
+  tip: string;
+}
+
 export interface SuiteSummary {
   name: string;
+  label: string;
+  description: string;
   provider: string;
   target_model: string;
   judge_model: string;
   prompt_template: string;
+  default_prompt: string;
+  weak_prompt: string;
+  signals: PromptSignal[];
   scorers: ScorerSpec[];
   num_cases: number;
   golden_set: string;

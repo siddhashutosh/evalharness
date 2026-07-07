@@ -47,25 +47,31 @@ customers ever see it.
 
 ## See it catch a regression (60-second demo)
 
-The [live dashboard](https://evalharness-wine.vercel.app) lets you watch the whole
-loop with no setup:
+The [live dashboard](https://evalharness-wine.vercel.app) is a **prompt playground**:
+pick an AI feature, edit its prompt, and watch prompt quality move the score — no
+setup.
 
-1. **Run a suite** — pick `capitals-qa`, hit **Run eval**. At full quality every case
-   passes (100%).
-2. **Save a baseline** — click **Save baseline**. This is now your "known-good" bar.
-3. **Degrade quality** — drag the **model quality** slider down (this simulates a worse
-   prompt/model that gets some answers wrong).
-4. **Run the gate** — hit **Run gate**. It compares the degraded run to your baseline
-   and turns **red**, naming exactly what broke:
+1. **Pick a feature** — choose one of **10 AI features** (support bot, sentiment,
+   summarizer, PII redactor, NL→SQL, grounded RAG Q&A, …). Its golden set and a
+   strong starting prompt load automatically.
+2. **Run eval** — with the strong prompt, every case passes (100%). A live checklist
+   shows which prompt-quality signals your prompt covers.
+3. **Save a baseline** — this is your "known-good" bar.
+4. **Weaken the prompt** — delete some instructions (watch checklist items turn off),
+   then **Run gate**. It compares to your baseline and turns **red**, naming exactly
+   what broke:
 
    ```
    GATE FAILED
-   - case 'australia' regressed pass → fail (contains: missing expected)
-   - pass rate dropped 100.0% → 75.0% (delta 25.0% > tolerance 0.0%)
-   - scorer 'llm_judge' mean dropped 0.950 → 0.750
+   - case 's3' regressed pass → fail (contains: missing expected)
+   - pass rate dropped 100.0% → 50.0% (delta 50.0% > tolerance 0.0%)
+   - scorer 'llm_judge' mean dropped 0.950 → 0.550
    ```
 
-Same flow from the command line:
+   (Or use the one-click **Passing gate** / **Failing gate** buttons.)
+
+The same idea in the Python library — establish a baseline, change the prompt/model,
+and gate it:
 
 ```bash
 evalharness baseline examples/suite.yaml -o baseline.json   # capture "known-good"
@@ -205,11 +211,13 @@ cd web && cp .env.local.example .env.local && npm install && npm run dev
 # → http://localhost:3000
 ```
 
-The dashboard has a **model-quality slider**: run at full quality, save a
-baseline, drag quality down, and run the gate to see exactly which cases regress.
-Demo mode uses a deterministic offline provider (no key); live mode calls the
-real model. Details: [`server/README.md`](server/README.md) ·
-[`web/README.md`](web/README.md).
+The hosted dashboard is a **prompt playground**: pick one of 10 AI-feature
+templates, edit its system prompt, and a deterministic demo engine scores how
+well that prompt does against the feature's golden set — a live checklist shows
+which prompt-quality signals you've covered. Save a baseline, weaken the prompt,
+and the gate catches the regression. It runs fully on Vercel with no backend (the
+FastAPI backend + `server/` remain for running the real Python library). Details:
+[`server/README.md`](server/README.md) · [`web/README.md`](web/README.md).
 
 ## Architecture & SOLID
 

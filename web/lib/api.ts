@@ -38,8 +38,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface RunOpts {
   suite: string;
-  quality: number;
-  mode?: string;
+  prompt: string;
   baseline?: RunResult | null;
 }
 
@@ -51,21 +50,16 @@ export const api = {
   run: (o: RunOpts) =>
     req<{ id: string; run: RunResult }>("/api/run", {
       method: "POST",
-      body: JSON.stringify({ suite: o.suite, quality: o.quality, mode: o.mode ?? "demo" }),
+      body: JSON.stringify({ suite: o.suite, prompt: o.prompt }),
     }),
   baseline: (o: RunOpts) =>
     req<{ id: string; run: RunResult }>("/api/baseline", {
       method: "POST",
-      body: JSON.stringify({ suite: o.suite, quality: o.quality, mode: o.mode ?? "demo" }),
+      body: JSON.stringify({ suite: o.suite, prompt: o.prompt }),
     }),
   gate: (o: RunOpts) =>
     req<GateResponse>("/api/gate", {
       method: "POST",
-      body: JSON.stringify({
-        suite: o.suite,
-        quality: o.quality,
-        mode: o.mode ?? "demo",
-        baseline: o.baseline ?? null,
-      }),
+      body: JSON.stringify({ suite: o.suite, prompt: o.prompt, baseline: o.baseline ?? null }),
     }),
 };

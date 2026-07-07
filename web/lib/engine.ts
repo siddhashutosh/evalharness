@@ -1,8 +1,9 @@
-// TypeScript port of the evalharness demo pipeline (run / scorers / regression),
-// so the dashboard runs fully on Vercel with no Python backend. Mirrors the
-// behavior of server/demo.py + evalharness/{runner,scorers,regression}.py.
+// Prompt-driven demo engine. A user's system prompt is scored for quality
+// (how many "good-prompt signals" it covers); the better the prompt, the more
+// (and harder) golden cases pass. Scoring/aggregation/regression mirror the
+// Python harness (evalharness/{runner,scorers,regression}.py).
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type {
   AggregateMetrics,
   CaseResult,
@@ -12,23 +13,22 @@ import type {
   ScoreResult,
   SuiteSummary,
 } from "./types";
-import type { SuiteCaseDef, SuiteDef } from "./suites";
+import type { PromptSignal, SuiteCaseDef, SuiteDef } from "./suites";
 
-const WRONG_FALLBACK = "I'm not certain about this one.";
+// ---- prompt quality ---------------------------------------------------------
 
-// ---- demo provider: answer the golden set at a given quality ----------------
-
-function isDegraded(caseId: string, quality: number): boolean {
-  if (quality >= 1.0) return false;
-  if (quality <= 0.0) return true;
-  const digest = createHash("sha256").update(caseId).digest("hex");
-  const bucket = parseInt(digest.slice(0, 8), 16) / 0xffffffff; // 0..1
-  return bucket >= quality;
+export function promptCoverage(prompt: string, signals: PromptSignal[]): number {
+  if (signals.length === 0) return 0;
+  const p = prompt.toLowerCase();
+  const hits = signals.filter((s) => p.includes(s.text.toLowerCase())).length;
+  return hits / signals.length;
 }
 
-function demoAnswer(c: SuiteCaseDef, quality: number): string {
-  if (!isDegraded(c.id, quality)) return c.expected;
-  return c.distractor || WRONG_FALLBACK;
+// A non-trivial prompt gets a small floor so it isn't graded at zero.
+function promptScore(prompt: string, signals: PromptSignal[]): number {
+  const cov = promptCoverage(prompt, signals);
+  const floor = prompt.trim().length >= 30 ? 0.25 : 0;
+  return Math.max(cov, floor);
 }
 
 // ---- scorers ----------------------------------------------------------------
@@ -46,7 +46,6 @@ function scoreContains(expected: string, output: string, threshold: number): Sco
   };
 }
 
-// Simulated LLM judge: grades pass/high when the expected answer is present.
 function scoreJudge(expected: string, output: string, threshold: number): ScoreResult {
   const good = norm(output).includes(norm(expected));
   const score = good ? 0.95 : 0.15;
@@ -54,21 +53,22 @@ function scoreJudge(expected: string, output: string, threshold: number): ScoreR
     scorer: "llm_judge",
     score,
     passed: score >= threshold,
-    detail: good ? "Matches the expected answer." : "Does not satisfy the criteria.",
+    detail: good ? "Meets the rubric." : "Does not satisfy the criteria.",
   };
 }
 
 // ---- run --------------------------------------------------------------------
 
-export function runSuite(suite: SuiteDef, quality: number): RunResult {
-  const cases: CaseResult[] = suite.cases.map((c) => {
-    const output = demoAnswer(c, quality);
+export function runWithPrompt(suite: SuiteDef, prompt: string): RunResult {
+  const score = promptScore(prompt, suite.signals);
+  const cases: CaseResult[] = suite.cases.map((c: SuiteCaseDef) => {
+    const correct = score >= c.difficulty;
+    const output = correct ? c.expected : c.distractor;
     const scores: ScoreResult[] = suite.scorers.map((spec) =>
       spec.type === "contains"
         ? scoreContains(c.expected, output, spec.threshold)
         : scoreJudge(c.expected, output, spec.threshold),
     );
-    // A case passes iff every REQUIRED scorer passes (or all, if none required).
     const required = suite.scorers.filter((s) => s.required).map((s) => s.type as string);
     const gateSet = new Set<string>(
       required.length ? required : suite.scorers.map((s) => s.type as string),
@@ -97,7 +97,6 @@ export function runSuite(suite: SuiteDef, quality: number): RunResult {
 function aggregate(cases: CaseResult[]): AggregateMetrics {
   const total = cases.length;
   const passed = cases.filter((c) => c.passed).length;
-
   const sums: Record<string, number> = {};
   const counts: Record<string, number> = {};
   for (const c of cases) {
@@ -110,7 +109,6 @@ function aggregate(cases: CaseResult[]): AggregateMetrics {
   for (const name of Object.keys(sums)) {
     if (counts[name]) mean_score_by_scorer[name] = sums[name] / counts[name];
   }
-
   return {
     total,
     passed,
@@ -147,9 +145,9 @@ export function compare(
   if (drop > thresholds.pass_rate_drop) {
     reasons.push({
       kind: "pass_rate_drop",
-      detail: `pass rate dropped ${fmtPct(baseline.metrics.pass_rate)} -> ${fmtPct(
+      detail: `pass rate dropped ${pctf(baseline.metrics.pass_rate)} -> ${pctf(
         current.metrics.pass_rate,
-      )} (delta ${fmtPct(drop)} > tolerance ${fmtPct(thresholds.pass_rate_drop)})`,
+      )} (delta ${pctf(drop)} > tolerance ${pctf(thresholds.pass_rate_drop)})`,
     });
   }
 
@@ -175,17 +173,22 @@ function firstFailing(c: CaseResult): string {
   return f ? `${f.scorer}: ${f.detail}` : "no passing scorers";
 }
 
-const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
+const pctf = (v: number) => `${(v * 100).toFixed(1)}%`;
 
 // ---- summaries --------------------------------------------------------------
 
 export function suiteSummary(suite: SuiteDef, withCases = false): SuiteSummary {
   const summary: SuiteSummary = {
     name: suite.name,
+    label: suite.label,
+    description: suite.description,
     provider: "demo",
     target_model: suite.target_model,
     judge_model: suite.judge_model,
-    prompt_template: suite.prompt_template,
+    prompt_template: "{input}",
+    default_prompt: suite.default_prompt,
+    weak_prompt: suite.weak_prompt,
+    signals: suite.signals.map((s) => ({ text: s.text, tip: s.tip })),
     scorers: suite.scorers.map((s) => ({
       type: s.type,
       threshold: s.threshold,
@@ -201,7 +204,7 @@ export function suiteSummary(suite: SuiteDef, withCases = false): SuiteSummary {
       input: c.input,
       expected: c.expected,
       rubric: c.rubric,
-      tags: c.tags ?? [],
+      tags: [],
     }));
   }
   return summary;

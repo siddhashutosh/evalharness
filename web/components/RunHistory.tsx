@@ -37,9 +37,7 @@ export function RunHistory({
                     <span className="block truncate text-sm font-medium text-white/85">
                       {r.suite}
                     </span>
-                    <span className="text-xs text-white/40">
-                      {timeAgo(r.created_at)} · q{Math.round(r.quality * 100)}
-                    </span>
+                    <span className="text-xs text-white/40">{timeAgo(r.created_at)}</span>
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="block text-sm font-semibold tabular-nums">

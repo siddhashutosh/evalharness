@@ -9,7 +9,7 @@ import { GateBanner } from "@/components/GateBanner";
 import { RunControls } from "@/components/RunControls";
 import { RunHistory } from "@/components/RunHistory";
 import { api, ApiError } from "@/lib/api";
-import { money, num } from "@/lib/format";
+import { num } from "@/lib/format";
 import type {
   GateDecision,
   RunResult,
@@ -18,9 +18,9 @@ import type {
 } from "@/lib/types";
 
 type Toast = { msg: string; kind: "ok" | "err" } | null;
-type HistoryEntry = { id: string; suite: string; quality: number; run: RunResult };
+type HistoryEntry = { id: string; label: string; run: RunResult };
 
-const HISTORY_KEY = "evalharness.history.v1";
+const HISTORY_KEY = "evalharness.history.v2";
 const MAX_HISTORY = 12;
 
 function loadHistoryFromStorage(): HistoryEntry[] {
@@ -35,7 +35,7 @@ function loadHistoryFromStorage(): HistoryEntry[] {
 export default function Dashboard() {
   const [suites, setSuites] = useState<SuiteSummary[]>([]);
   const [selected, setSelected] = useState("");
-  const [quality, setQuality] = useState(1.0);
+  const [prompt, setPrompt] = useState("");
 
   const [run, setRun] = useState<RunResult | null>(null);
   const [baselineRun, setBaselineRun] = useState<RunResult | null>(null);
@@ -53,9 +53,14 @@ export default function Dashboard() {
     setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const record = useCallback((id: string, suite: string, q: number, r: RunResult) => {
+  const suiteOf = useCallback(
+    (name: string) => suites.find((s) => s.name === name),
+    [suites],
+  );
+
+  const record = useCallback((id: string, label: string, r: RunResult) => {
     setHistory((prev) => {
-      const next = [{ id, suite, quality: q, run: r }, ...prev].slice(0, MAX_HISTORY);
+      const next = [{ id, label, run: r }, ...prev].slice(0, MAX_HISTORY);
       try {
         window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
       } catch {
@@ -70,19 +75,30 @@ export default function Dashboard() {
     setHistory(loadHistoryFromStorage());
     api
       .suites()
-      .then((s) => {
-        setSuites(s);
-        if (s.length) setSelected((cur) => cur || s[0].name);
-      })
+      .then(setSuites)
       .catch((e) => setFatal(e instanceof ApiError ? e.message : String(e)));
   }, []);
+
+  const onSelect = (name: string) => {
+    setSelected(name);
+    const s = suites.find((x) => x.name === name);
+    setPrompt(s?.default_prompt ?? "");
+    setRun(null);
+    setGate(null);
+    setBaselineRun(null);
+  };
+
+  const onResetPrompt = () => {
+    const s = suiteOf(selected);
+    if (s) setPrompt(s.default_prompt);
+  };
 
   const runSummaries: RunSummary[] = useMemo(
     () =>
       history.map((h) => ({
         id: h.id,
-        suite: h.suite,
-        quality: h.quality,
+        suite: h.label,
+        quality: 0,
         mode: "demo",
         created_at: h.run.created_at,
         pass_rate: h.run.metrics.pass_rate,
@@ -106,23 +122,25 @@ export default function Dashboard() {
     }
   }
 
+  const label = () => suiteOf(selected)?.label ?? selected;
+
   const doRun = () =>
     withBusy("run", async () => {
-      const res = await api.run({ suite: selected, quality });
+      const res = await api.run({ suite: selected, prompt });
       setRun(res.run);
       setGate(null);
-      record(res.id, selected, quality, res.run);
-      flash(`Ran ${selected} — ${res.run.metrics.passed}/${res.run.metrics.total} passed`);
+      record(res.id, label(), res.run);
+      flash(`Ran — ${res.run.metrics.passed}/${res.run.metrics.total} passed`);
     });
 
   const doBaseline = () =>
     withBusy("baseline", async () => {
-      const res = await api.baseline({ suite: selected, quality });
+      const res = await api.baseline({ suite: selected, prompt });
       setBaselineRun(res.run);
       setRun(res.run);
       setGate(null);
-      record(res.id, selected, quality, res.run);
-      flash("Baseline saved — now degrade quality and run the gate", "ok");
+      record(res.id, label(), res.run);
+      flash("Baseline saved — now change the prompt and run the gate", "ok");
     });
 
   const doGate = () =>
@@ -131,7 +149,7 @@ export default function Dashboard() {
         flash("Save a baseline first, then run the gate", "err");
         return;
       }
-      const res = await api.gate({ suite: selected, quality, baseline: baselineRun });
+      const res = await api.gate({ suite: selected, prompt, baseline: baselineRun });
       setRun(res.run);
       if (res.error || !res.gate) {
         setGate(null);
@@ -139,22 +157,26 @@ export default function Dashboard() {
         return;
       }
       setGate(res.gate);
-      if (res.run_id) record(res.run_id, selected, quality, res.run);
+      if (res.run_id) record(res.run_id, label(), res.run);
       flash(res.gate.passed ? "Gate passed ✓" : "Gate failed ✕", res.gate.passed ? "ok" : "err");
     });
 
-  // One-click demo: baseline at 100%, then gate at 100% (passes) or 50% (fails).
+  // One-click demo: a strong-prompt baseline, then gate with the same strong
+  // prompt (passes) or a deliberately weak prompt (fails).
   const doDemo = (kind: "pass" | "fail") =>
     withBusy(`demo-${kind}`, async () => {
-      const base = await api.baseline({ suite: selected, quality: 1.0 });
+      const s = suiteOf(selected) ?? suites[0];
+      if (!s) return;
+      setSelected(s.name);
+      const base = await api.baseline({ suite: s.name, prompt: s.default_prompt });
       setBaselineRun(base.run);
-      record(base.id, selected, 1.0, base.run);
-      const q = kind === "pass" ? 1.0 : 0.5;
-      const g = await api.gate({ suite: selected, quality: q, baseline: base.run });
+      record(base.id, s.label, base.run);
+      const usedPrompt = kind === "pass" ? s.default_prompt : s.weak_prompt;
+      setPrompt(usedPrompt);
+      const g = await api.gate({ suite: s.name, prompt: usedPrompt, baseline: base.run });
       setRun(g.run);
       setGate(g.gate ?? null);
-      if (g.run_id) record(g.run_id, selected, q, g.run);
-      setQuality(q);
+      if (g.run_id) record(g.run_id, s.label, g.run);
       flash(
         g.gate?.passed ? "Passing gate — no regression ✓" : "Failing gate — regression caught ✕",
         g.gate?.passed ? "ok" : "err",
@@ -178,10 +200,7 @@ export default function Dashboard() {
             <div className="mb-3 text-4xl">🔌</div>
             <h2 className="font-display text-xl font-bold">Couldn&apos;t load the API</h2>
             <p className="mt-2 text-sm text-white/60">{fatal}</p>
-            <p className="mt-4 text-xs text-white/40">
-              The dashboard uses same-origin API routes by default. Try reloading; if you&apos;re
-              running locally against the Python backend, make sure it&apos;s up.
-            </p>
+            <p className="mt-4 text-xs text-white/40">Try reloading the page.</p>
           </div>
         </div>
       </div>
@@ -194,9 +213,10 @@ export default function Dashboard() {
       <main className="mx-auto max-w-7xl px-5 py-8">
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold">Evaluation dashboard</h1>
+            <h1 className="font-display text-2xl font-bold">Prompt playground</h1>
             <p className="text-sm text-white/50">
-              Run suites, save baselines, and gate changes — the eval engine runs right here.
+              Pick an AI feature, edit its prompt, and see how prompt quality moves the score — then
+              gate a change against your baseline.
             </p>
           </div>
           <span className="chip hidden sm:inline-flex">
@@ -204,14 +224,15 @@ export default function Dashboard() {
           </span>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
+        <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
           <div className="space-y-5">
             <RunControls
               suites={suites}
               selected={selected}
-              onSelect={setSelected}
-              quality={quality}
-              onQuality={setQuality}
+              onSelect={onSelect}
+              prompt={prompt}
+              onPrompt={setPrompt}
+              onResetPrompt={onResetPrompt}
               onRun={doRun}
               onBaseline={doBaseline}
               onGate={doGate}
@@ -222,20 +243,20 @@ export default function Dashboard() {
             <div className="glass-strong p-5">
               <div className="card-label mb-1.5">Guided demo</div>
               <p className="mb-3 text-xs text-white/50">
-                See both outcomes in one click — each saves a 100% baseline, then gates a fresh run
-                against it.
+                One click each — a strong-prompt baseline, then a gate with the same prompt (passes)
+                or a weak prompt (fails).
               </p>
               <div className="flex gap-2.5">
                 <button
                   onClick={() => doDemo("pass")}
-                  disabled={busy}
+                  disabled={busy || suites.length === 0}
                   className="btn flex-1 border border-status-good/40 bg-status-good/10 text-status-good transition hover:bg-status-good/20 disabled:opacity-50"
                 >
                   {busy && action === "demo-pass" ? <DemoSpinner /> : "✓"} Passing gate
                 </button>
                 <button
                   onClick={() => doDemo("fail")}
-                  disabled={busy}
+                  disabled={busy || suites.length === 0}
                   className="btn flex-1 border border-status-critical/40 bg-status-critical/10 text-status-critical transition hover:bg-status-critical/20 disabled:opacity-50"
                 >
                   {busy && action === "demo-fail" ? <DemoSpinner /> : "✕"} Failing gate
@@ -262,9 +283,9 @@ export default function Dashboard() {
                     />
                   </div>
                   <KpiCard
-                    label="Est. cost"
-                    value={money(run.metrics.est_cost_usd)}
-                    sub="demo mode"
+                    label="Scorers"
+                    value={String(Object.keys(run.metrics.mean_score_by_scorer).length)}
+                    sub="graded per case"
                     accent="cyan"
                   />
                   <KpiCard
@@ -311,13 +332,12 @@ function EmptyState() {
         <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-neon-fuchsia to-neon-cyan text-3xl text-ink-bg shadow-glow">
           ▶
         </div>
-        <h3 className="font-display text-xl font-bold">See it in action</h3>
+        <h3 className="font-display text-xl font-bold">Pick a feature to begin</h3>
         <p className="mx-auto mt-2 max-w-sm text-sm text-white/55">
-          Fastest way to understand it: hit{" "}
-          <span className="font-semibold text-status-good">Passing gate</span> then{" "}
-          <span className="font-semibold text-status-critical">Failing gate</span> in the guided
-          demo on the left — you&apos;ll see both outcomes instantly. Or run a suite manually and
-          drag the quality slider.
+          Choose an <span className="font-semibold text-white">AI feature</span> from the dropdown,
+          then <span className="font-semibold text-white">Run eval</span> on its prompt. Or hit the
+          one-click <span className="font-semibold text-status-good">Passing</span> /{" "}
+          <span className="font-semibold text-status-critical">Failing</span> gate demo.
         </p>
       </div>
     </div>
