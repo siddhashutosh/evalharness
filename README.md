@@ -216,8 +216,11 @@ templates, edit its system prompt, and a deterministic demo engine scores how
 well that prompt does against the feature's golden set — a live checklist shows
 which prompt-quality signals you've covered. Save a baseline, weaken the prompt,
 and the gate catches the regression. It runs fully on Vercel with no backend (the
-FastAPI backend + `server/` remain for running the real Python library). Details:
-[`server/README.md`](server/README.md) · [`web/README.md`](web/README.md).
+FastAPI backend + `server/` remain for running the real Python library). A
+**"bring your own key" live mode** runs your prompt against the real Claude model
+(answer + LLM-judge grade, with real token cost) — the key stays in your browser
+and is never stored. Details: [`server/README.md`](server/README.md) ·
+[`web/README.md`](web/README.md).
 
 ## Architecture & SOLID
 

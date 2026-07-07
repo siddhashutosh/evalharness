@@ -8,8 +8,10 @@ import { CaseTable } from "@/components/CaseTable";
 import { GateBanner } from "@/components/GateBanner";
 import { RunControls } from "@/components/RunControls";
 import { RunHistory } from "@/components/RunHistory";
+import { LiveMode } from "@/components/LiveMode";
 import { api, ApiError } from "@/lib/api";
-import { num } from "@/lib/format";
+import { DEFAULT_LIVE_MODEL } from "@/lib/models";
+import { money, num } from "@/lib/format";
 import type {
   GateDecision,
   RunResult,
@@ -36,6 +38,9 @@ export default function Dashboard() {
   const [suites, setSuites] = useState<SuiteSummary[]>([]);
   const [selected, setSelected] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<"demo" | "live">("demo");
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState<string>(DEFAULT_LIVE_MODEL);
 
   const [run, setRun] = useState<RunResult | null>(null);
   const [baselineRun, setBaselineRun] = useState<RunResult | null>(null);
@@ -73,11 +78,41 @@ export default function Dashboard() {
 
   useEffect(() => {
     setHistory(loadHistoryFromStorage());
+    try {
+      setApiKey(window.sessionStorage.getItem("evalharness.key") || "");
+    } catch {
+      /* sessionStorage may be unavailable */
+    }
     api
       .suites()
       .then(setSuites)
       .catch((e) => setFatal(e instanceof ApiError ? e.message : String(e)));
   }, []);
+
+  const onApiKey = (v: string) => {
+    setApiKey(v);
+    try {
+      window.sessionStorage.setItem("evalharness.key", v);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Runs from different modes aren't comparable — reset when switching.
+  const onMode = (m: "demo" | "live") => {
+    setMode(m);
+    setRun(null);
+    setGate(null);
+    setBaselineRun(null);
+  };
+
+  const liveReady = () => {
+    if (mode === "live" && !apiKey.trim()) {
+      flash("Enter your Anthropic API key for live mode", "err");
+      return false;
+    }
+    return true;
+  };
 
   const onSelect = (name: string) => {
     setSelected(name);
@@ -124,32 +159,39 @@ export default function Dashboard() {
 
   const label = () => suiteOf(selected)?.label ?? selected;
 
-  const doRun = () =>
-    withBusy("run", async () => {
-      const res = await api.run({ suite: selected, prompt });
+  const liveOpts = () => ({ mode, model, apiKey } as const);
+
+  const doRun = () => {
+    if (!liveReady()) return;
+    return withBusy("run", async () => {
+      const res = await api.run({ suite: selected, prompt, ...liveOpts() });
       setRun(res.run);
       setGate(null);
       record(res.id, label(), res.run);
       flash(`Ran — ${res.run.metrics.passed}/${res.run.metrics.total} passed`);
     });
+  };
 
-  const doBaseline = () =>
-    withBusy("baseline", async () => {
-      const res = await api.baseline({ suite: selected, prompt });
+  const doBaseline = () => {
+    if (!liveReady()) return;
+    return withBusy("baseline", async () => {
+      const res = await api.baseline({ suite: selected, prompt, ...liveOpts() });
       setBaselineRun(res.run);
       setRun(res.run);
       setGate(null);
       record(res.id, label(), res.run);
       flash("Baseline saved — now change the prompt and run the gate", "ok");
     });
+  };
 
-  const doGate = () =>
-    withBusy("gate", async () => {
+  const doGate = () => {
+    if (!liveReady()) return;
+    return withBusy("gate", async () => {
       if (!baselineRun) {
         flash("Save a baseline first, then run the gate", "err");
         return;
       }
-      const res = await api.gate({ suite: selected, prompt, baseline: baselineRun });
+      const res = await api.gate({ suite: selected, prompt, baseline: baselineRun, ...liveOpts() });
       setRun(res.run);
       if (res.error || !res.gate) {
         setGate(null);
@@ -160,6 +202,7 @@ export default function Dashboard() {
       if (res.run_id) record(res.run_id, label(), res.run);
       flash(res.gate.passed ? "Gate passed ✓" : "Gate failed ✕", res.gate.passed ? "ok" : "err");
     });
+  };
 
   // One-click demo: a strong-prompt baseline, then gate with the same strong
   // prompt (passes) or a deliberately weak prompt (fails).
@@ -226,6 +269,15 @@ export default function Dashboard() {
 
         <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
           <div className="space-y-5">
+            <LiveMode
+              mode={mode}
+              onMode={onMode}
+              apiKey={apiKey}
+              onApiKey={onApiKey}
+              model={model}
+              onModel={setModel}
+              busy={busy}
+            />
             <RunControls
               suites={suites}
               selected={selected}
@@ -283,9 +335,9 @@ export default function Dashboard() {
                     />
                   </div>
                   <KpiCard
-                    label="Scorers"
-                    value={String(Object.keys(run.metrics.mean_score_by_scorer).length)}
-                    sub="graded per case"
+                    label="Est. cost"
+                    value={money(run.metrics.est_cost_usd)}
+                    sub={mode === "live" ? "real spend" : "demo · free"}
                     accent="cyan"
                   />
                   <KpiCard

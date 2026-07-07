@@ -55,6 +55,18 @@ output"). The more signals your prompt covers, the more — and harder — golde
 cases pass. A live checklist in the UI shows your coverage; save a baseline,
 weaken the prompt, and the gate catches the regression.
 
+## Live mode (bring your own key)
+
+Toggle **Live · your key** to run against the **real Claude model** instead of the
+simulation. Paste an Anthropic API key and pick a model (Haiku 4.5 / Sonnet 5 /
+Opus 4.8); each golden case is answered by the model and graded by an LLM-judge
+call, and the KPI shows **real token cost**. Save a baseline with one prompt,
+change the prompt, and gate it — a genuine before/after eval on your own prompt.
+
+**Key handling:** the key is kept only in the browser (`sessionStorage`), sent on
+a per-request header straight to Anthropic through the app's serverless route, and
+**never stored, logged, or committed**. Live runs bill your Anthropic account.
+
 ## How the backend works
 
 The dashboard is **self-contained**: it ships its own eval engine as Next.js API

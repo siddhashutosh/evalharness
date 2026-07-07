@@ -1,20 +1,28 @@
 import { NextResponse } from "next/server";
 import { getSuite } from "@/lib/suites";
-import { compare, newId, runWithPrompt } from "@/lib/engine";
+import { compare, newId } from "@/lib/engine";
+import { errMsg, evaluate } from "@/lib/live";
 import type { RunResult } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  const key = req.headers.get("x-anthropic-key");
   const body = await req.json().catch(() => ({}));
-  const { suite: name, prompt = "", baseline } = body ?? {};
+  const { suite: name, prompt = "", mode = "demo", model, baseline } = body ?? {};
   const suite = getSuite(name);
   if (!suite) {
     return NextResponse.json({ detail: `suite not found: ${name}` }, { status: 404 });
   }
-  const run = runWithPrompt(suite, String(prompt));
 
-  // The frontend passes the baseline it holds (serverless has no shared state).
+  let run: RunResult;
+  try {
+    run = await evaluate(suite, String(prompt), mode, model, key);
+  } catch (e) {
+    return NextResponse.json({ detail: errMsg(e) }, { status: 400 });
+  }
+
   const base = baseline as RunResult | undefined;
   if (!base || !base.cases) {
     return NextResponse.json({

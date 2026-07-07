@@ -39,7 +39,25 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export interface RunOpts {
   suite: string;
   prompt: string;
+  mode?: "demo" | "live";
+  model?: string;
+  apiKey?: string | null;
   baseline?: RunResult | null;
+}
+
+// The API key rides in a header (not the body) and is used per request only.
+function headersFor(o: RunOpts): Record<string, string> {
+  return o.mode === "live" && o.apiKey ? { "x-anthropic-key": o.apiKey } : {};
+}
+
+function bodyFor(o: RunOpts, extra: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    suite: o.suite,
+    prompt: o.prompt,
+    mode: o.mode ?? "demo",
+    model: o.model,
+    ...extra,
+  });
 }
 
 export const api = {
@@ -50,16 +68,19 @@ export const api = {
   run: (o: RunOpts) =>
     req<{ id: string; run: RunResult }>("/api/run", {
       method: "POST",
-      body: JSON.stringify({ suite: o.suite, prompt: o.prompt }),
+      headers: headersFor(o),
+      body: bodyFor(o),
     }),
   baseline: (o: RunOpts) =>
     req<{ id: string; run: RunResult }>("/api/baseline", {
       method: "POST",
-      body: JSON.stringify({ suite: o.suite, prompt: o.prompt }),
+      headers: headersFor(o),
+      body: bodyFor(o),
     }),
   gate: (o: RunOpts) =>
     req<GateResponse>("/api/gate", {
       method: "POST",
-      body: JSON.stringify({ suite: o.suite, prompt: o.prompt, baseline: o.baseline ?? null }),
+      headers: headersFor(o),
+      body: bodyFor(o, { baseline: o.baseline ?? null }),
     }),
 };
