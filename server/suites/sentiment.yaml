@@ -1,0 +1,20 @@
+name: sentiment-classification
+golden_set: sentiment.goldens.yaml
+
+provider: anthropic
+target_model: claude-opus-4-8
+judge_model: claude-opus-4-8
+
+max_tokens: 16
+system: "Classify the sentiment as exactly one word: positive, negative, or neutral."
+prompt_template: "Classify the sentiment of this text as positive, negative, or neutral:\n{input}"
+
+scorers:
+  - {type: contains, threshold: 1.0, required: true}
+  - {type: llm_judge, threshold: 0.6}
+
+thresholds:
+  pass_rate_drop: 0.0
+  scorer_mean_drop: 0.05
+
+concurrency: 4

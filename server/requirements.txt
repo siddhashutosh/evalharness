@@ -1,0 +1,4 @@
+# Backend deps. Install the harness itself from the repo root first:
+#   pip install -e .
+fastapi>=0.110
+uvicorn[standard]>=0.29
