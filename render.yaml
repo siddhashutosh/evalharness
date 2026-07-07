@@ -1,0 +1,16 @@
+# One-click backend deploy on Render (https://render.com).
+# Render clones the whole repo, so the harness package + server both build.
+# After it deploys, copy the service URL (e.g. https://evalharness-api.onrender.com)
+# into Vercel as NEXT_PUBLIC_API_URL and redeploy the frontend.
+services:
+  - type: web
+    name: evalharness-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -e . && pip install -r server/requirements.txt
+    # `python -m uvicorn` puts the repo root on sys.path so `server` imports.
+    startCommand: python -m uvicorn server.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
