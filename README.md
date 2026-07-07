@@ -17,6 +17,67 @@ contains / semantic embedding / LLM-judge) ──► compare to baseline ──�
 
 ---
 
+## What is this? (plain English)
+
+It's **automated testing for AI features** — the same idea as unit tests, but for
+LLM outputs instead of ordinary code.
+
+Regular software is predictable: `add(2, 2)` is always `4`, so `assert add(2,2) == 4`
+catches bugs for you. AI isn't — the **same prompt returns different answers**, and
+"correct" is usually a matter of **degree**, not exact equality. So when you change
+a prompt or swap models, you can't easily tell whether quality went up, down, or
+sideways. Most teams just eyeball a few outputs and hope.
+
+`evalharness` closes that gap. You write **golden test cases** (inputs with known-good
+answers/rubrics); it runs them through your AI, **scores** the outputs (including an
+LLM-as-judge that grades against your rubric), compares the results to a saved
+**baseline**, and **fails the build** if quality dropped — so a bad prompt or model
+change is caught automatically, before it reaches users.
+
+**Who it's for:** anyone shipping an AI feature (chatbot, summarizer, classifier,
+RAG, agent) who needs objective, repeatable proof that a change didn't quietly make
+things worse.
+
+**Concrete example:** you tweak a support bot's prompt to be more concise.
+evalharness re-runs your 50 golden questions, compares to last week's baseline, and
+reports *"pass rate 92% → 78%; 'refund policy' and 'cancellation' now fail"* — before
+customers ever see it.
+
+---
+
+## See it catch a regression (60-second demo)
+
+The [live dashboard](https://evalharness-wine.vercel.app) lets you watch the whole
+loop with no setup:
+
+1. **Run a suite** — pick `capitals-qa`, hit **Run eval**. At full quality every case
+   passes (100%).
+2. **Save a baseline** — click **Save baseline**. This is now your "known-good" bar.
+3. **Degrade quality** — drag the **model quality** slider down (this simulates a worse
+   prompt/model that gets some answers wrong).
+4. **Run the gate** — hit **Run gate**. It compares the degraded run to your baseline
+   and turns **red**, naming exactly what broke:
+
+   ```
+   GATE FAILED
+   - case 'australia' regressed pass → fail (contains: missing expected)
+   - pass rate dropped 100.0% → 75.0% (delta 25.0% > tolerance 0.0%)
+   - scorer 'llm_judge' mean dropped 0.950 → 0.750
+   ```
+
+Same flow from the command line:
+
+```bash
+evalharness baseline examples/suite.yaml -o baseline.json   # capture "known-good"
+# ...now weaken the prompt or change target_model in the suite...
+evalharness gate examples/suite.yaml --baseline baseline.json   # exits 1 → CI goes red
+```
+
+That non-zero exit code is the whole point: wired into CI, a quality drop fails the
+build exactly like a failing test.
+
+---
+
 ## Why it stands out
 
 Most "evals" in the wild are a one-off script that prints outputs for a human to
