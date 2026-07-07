@@ -1,0 +1,32 @@
+# Example suite: a small capitals QA task graded three ways.
+#
+# Quickstart (requires ANTHROPIC_API_KEY):
+#   evalharness baseline examples/suite.yaml -o examples/baseline.json
+#   evalharness gate     examples/suite.yaml --baseline examples/baseline.json --html report.html
+#
+# To demo a regression, weaken `prompt_template` (e.g. tell the model to guess
+# without thinking) and re-run `gate` — it will exit non-zero.
+
+name: capitals-qa
+golden_set: golden_set.yaml
+
+provider: anthropic
+target_model: claude-opus-4-8
+judge_model: claude-opus-4-8      # downgrade to claude-haiku-4-5 to cut judge cost
+
+max_tokens: 256
+system: "You are a precise geography assistant. Answer with only the city name."
+prompt_template: "{input}"
+
+# A case passes only if the required scorer passes; the others are informational
+# signals that also feed regression detection via their per-scorer means.
+scorers:
+  - {type: contains, threshold: 1.0, required: true}   # must contain the exact city
+  - {type: embedding, threshold: 0.6}                  # semantic sanity check (local)
+  - {type: llm_judge, threshold: 0.6}                  # rubric-based quality grade
+
+thresholds:
+  pass_rate_drop: 0.0        # any pass-rate drop fails the gate
+  scorer_mean_drop: 0.05     # a >5pt mean-score drop on any scorer fails the gate
+
+concurrency: 4

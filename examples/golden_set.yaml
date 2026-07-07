@@ -1,0 +1,28 @@
+name: capitals-qa
+version: "1"
+cases:
+  - id: france
+    input: "What is the capital of France? Answer with just the city name."
+    expected: "Paris"
+    rubric: "The answer correctly identifies Paris as the capital of France."
+    tags: [geography]
+  - id: japan
+    input: "What is the capital of Japan? Answer with just the city name."
+    expected: "Tokyo"
+    rubric: "The answer correctly identifies Tokyo as the capital of Japan."
+    tags: [geography]
+  - id: australia
+    input: "What is the capital of Australia? Answer with just the city name."
+    expected: "Canberra"
+    rubric: "The answer correctly identifies Canberra (not Sydney) as the capital of Australia."
+    tags: [geography, tricky]
+  - id: brazil
+    input: "What is the capital of Brazil? Answer with just the city name."
+    expected: "Brasília"
+    rubric: "The answer correctly identifies Brasília (not Rio de Janeiro) as the capital of Brazil."
+    tags: [geography, tricky]
+  - id: egypt
+    input: "What is the capital of Egypt? Answer with just the city name."
+    expected: "Cairo"
+    rubric: "The answer correctly identifies Cairo as the capital of Egypt."
+    tags: [geography]
